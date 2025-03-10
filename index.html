@@ -2,108 +2,101 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Tableau Interactif - Ezzedine</title>
-
-  <!-- Inclusion de jQuery -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- Inclusion de DataTables CSS -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau interactif - Nour Ezzedine</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-  <!-- Inclusion de DataTables JS -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-
-  <!-- Custom Style -->
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f4f4;
-      color: #333;
-    }
-    h2 {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 24px;
-    }
-    table {
-      width: 90%;
-      margin: 20px auto;
+    table.dataTable {
       border-collapse: collapse;
-      border: 1px solid #ddd;
-      background-color: white;
-      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      margin-top: 20px;
     }
     th, td {
       padding: 12px;
       text-align: left;
-      border: 1px solid #ddd;
     }
-    th {
-      background-color: #4CAF50;
-      color: white;
-    }
-    td {
-      background-color: #f9f9f9;
-    }
-    tr:nth-child(even) td {
+    thead {
       background-color: #f2f2f2;
     }
-    tr:hover {
-      background-color: #ddd;
+    tfoot {
+      font-weight: bold;
     }
-    .dataTables_wrapper {
-      width: 90%;
-      margin: 20px auto;
+    tfoot td {
+      background-color: #f9f9f9;
     }
   </style>
 </head>
 <body>
-
-  <h2>Enseignements 2019-2024 - Nour Ezzedine</h2>
-
+  <h2 style="text-align: center;">Enseignements 2019-2024 - Nour Ezzedine</h2>
   <table id="myTable" class="display">
-    <thead></thead>
-    <tbody></tbody>
+    <thead>
+      <tr>
+        <th>Colonne 1</th>
+        <th>Colonne 2</th>
+        <th>Colonne 3</th>
+        <th>Colonne 4</th> <!-- La colonne des sommes -->
+        <th>Colonne 5</th>
+      </tr>
+    </thead>
+    <tfoot>
+      <tr>
+        <td colspan="4">Somme de la colonne 4: </td>
+        <td id="sum">0</td>
+      </tr>
+    </tfoot>
+    <tbody>
+      <!-- Données dynamiques seront insérées ici via AJAX ou autre méthode -->
+    </tbody>
   </table>
 
   <script>
     $(document).ready(function() {
-      $.get('https://raw.githubusercontent.com/nourezzedine/EnseignementsEZZEDINE_CampagneMCF2025/refs/heads/main/EzzedineEnseignements20192024.csv', function(data) {
-        const rows = data.split('\n');
-        const headers = rows[0].split(',');
-
-        // Génération des en-têtes
-        let theadHtml = '<tr>';
-        headers.forEach(header => {
-          theadHtml += '<th>' + header + '</th>';
-        });
-        theadHtml += '</tr>';
-        $('#myTable thead').html(theadHtml);
-
-        // Génération des lignes du tableau
-        let tbodyHtml = '';
-        for (let i = 1; i < rows.length; i++) {
-          const cols = rows[i].split(',');
-          if (cols.length > 1) { // éviter les lignes vides
-            tbodyHtml += '<tr>';
-            cols.forEach(col => {
-              tbodyHtml += '<td>' + col + '</td>';
+      // Initialisation de DataTables
+      var table = $('#myTable').DataTable({
+        ajax: 'https://raw.githubusercontent.com/nourezzedine/EnseignementsEZZEDINE_CampagneMCF2025/refs/heads/main/EzzedineEnseignements20192024.csv',
+        columns: [
+          { title: 'Colonne 1' },
+          { title: 'Colonne 2' },
+          { title: 'Colonne 3' },
+          { title: 'Colonne 4' },  // Colonne des sommes
+          { title: 'Colonne 5' }
+        ],
+        initComplete: function () {
+          // Filtres par colonne
+          this.api().columns().every(function() {
+            var column = this;
+            var select = $('<select><option value=""></option></select>')
+              .appendTo($(column.footer()).empty())
+              .on('change', function() {
+                var val = $.fn.dataTable.util.escapeRegex($(this).val());
+                column.search(val ? '^' + val + '$' : '', true, false).draw();
+              });
+            column.data().unique().sort().each(function(d, j) {
+              select.append('<option value="' + d + '">' + d + '</option>');
             });
-            tbodyHtml += '</tr>';
-          }
+          });
         }
-        $('#myTable tbody').html(tbodyHtml);
-
-        // Initialisation de DataTables
-        $('#myTable').DataTable({
-          paging: true,  // Pagination
-          searching: true,  // Recherche
-          ordering: true,  // Tri des colonnes
-          info: true  // Afficher l'information sur le nombre de résultats
-        });
       });
+
+      // Fonction pour calculer la somme de la colonne 4 (index 3)
+      function calculateSum() {
+        var column = table.column(3); // Index de la colonne à sommer
+        var sum = column.data().reduce(function(a, b) {
+          return parseFloat(a) + parseFloat(b);
+        }, 0);
+
+        $('#sum').html(sum.toFixed(2));  // Afficher la somme dans l'élément avec ID 'sum'
+      }
+
+      // Recalculer la somme chaque fois que le tableau est redessiné (filtrage, tri, etc.)
+      table.on('draw', function() {
+        calculateSum();
+      });
+
+      // Calcul initial de la somme au chargement du tableau
+      calculateSum();
     });
   </script>
-
 </body>
 </html>
